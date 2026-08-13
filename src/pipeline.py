@@ -60,8 +60,8 @@ Answer:"""
 # TODO 1: Implement ask_question
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # FAISS L2 distance above which the best match is considered too dissimilar
-# to trust. Calibrated against this knowledge base's embeddings: on-topic
-# questions scored 0.44-0.95, off-topic questions scored 1.68-1.83.
+# to trust. Calibrated against knowledge base's embeddings: relevant chunks
+# scored 0.44-0.95, off-topic chunks scored 1.68-1.83.
 SCORE_THRESHOLD = 1.3
 
 
@@ -78,7 +78,7 @@ def ask_question(vector_store, llm, question: str, score_threshold: float = SCOR
          generated text from the result.
 
     If the best-matching chunk's distance exceeds score_threshold, the
-    question is treated as out of scope and the LLM is not called, to
+    question is treated as out of scope and the LLM is not called to
     avoid hallucinating an answer from irrelevant context.
 
     Args:

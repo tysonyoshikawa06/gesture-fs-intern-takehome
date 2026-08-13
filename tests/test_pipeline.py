@@ -71,6 +71,20 @@ class TestRetrieval:
             "Sources should contain SEO-related content"
         )
 
+    def test_retrieves_branding_info(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "Do you help with logo design and branding?")
+        sources_text = " ".join(result["sources"]).lower()
+        assert "brand" in sources_text or "logo" in sources_text, (
+            "Sources should contain branding-related content"
+        )
+
+    def test_retrieves_email_marketing_info(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "What email marketing platforms do you use?")
+        sources_text = " ".join(result["sources"]).lower()
+        assert "email" in sources_text or "klaviyo" in sources_text or "mailchimp" in sources_text, (
+            "Sources should contain email marketing-related content"
+        )
+
     def test_different_questions_get_different_sources(self, vector_store, llm):
         r1 = ask_question(vector_store, llm, "How does onboarding work?")
         r2 = ask_question(vector_store, llm, "What are your PPC management fees?")
@@ -94,4 +108,43 @@ class TestAnswerGeneration:
         answer = result["answer"].lower()
         assert "2,500" in answer or "2500" in answer or "starter" in answer, (
             "Answer should address the pricing question"
+        )
+
+    def test_answer_addresses_enterprise_pricing(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "How much does the Enterprise package cost?")
+        answer = result["answer"].lower()
+        assert "12,000" in answer or "12000" in answer or "enterprise" in answer, (
+            "Answer should address the Enterprise pricing question"
+        )
+
+
+# ────────────────────────────────
+# Out-of-scope handling (hallucination guard)
+# ────────────────────────────────
+class TestOutOfScopeHandling:
+    def test_out_of_scope_returns_fallback_message(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "What is the capital of France?")
+        assert result["answer"] == "I don't have enough information to answer that.", (
+            "Out-of-scope questions should return the fallback message instead of a generated answer"
+        )
+
+    def test_out_of_scope_does_not_call_llm(self, vector_store):
+        def exploding_llm(prompt):
+            raise AssertionError("LLM should not be called for out-of-scope questions")
+
+        result = ask_question(vector_store, exploding_llm, "How do I bake a chocolate cake?")
+        assert result["answer"] == "I don't have enough information to answer that.", (
+            "Out-of-scope questions should be rejected before ever reaching the LLM"
+        )
+
+    def test_out_of_scope_still_returns_sources(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "Explain quantum entanglement.")
+        assert isinstance(result["sources"], list) and len(result["sources"]) > 0, (
+            "Sources should still be returned for transparency even when the answer is rejected"
+        )
+
+    def test_on_topic_question_is_not_rejected(self, vector_store, llm):
+        result = ask_question(vector_store, llm, "What tools do you use for reporting?")
+        assert result["answer"] != "I don't have enough information to answer that.", (
+            "On-topic questions should not be caught by the out-of-scope guard"
         )

@@ -59,7 +59,13 @@ Answer:"""
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TODO 1: Implement ask_question
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-def ask_question(vector_store, llm, question: str) -> dict:
+# FAISS L2 distance above which the best match is considered too dissimilar
+# to trust. Calibrated against this knowledge base's embeddings: on-topic
+# questions scored 0.44-0.95, off-topic questions scored 1.68-1.83.
+SCORE_THRESHOLD = 1.3
+
+
+def ask_question(vector_store, llm, question: str, score_threshold: float = SCORE_THRESHOLD) -> dict:
     """Retrieve relevant chunks and generate an answer.
 
     Steps:
@@ -71,10 +77,15 @@ def ask_question(vector_store, llm, question: str) -> dict:
       4. Pass the formatted prompt to llm(...) and extract the
          generated text from the result.
 
+    If the best-matching chunk's distance exceeds score_threshold, the
+    question is treated as out of scope and the LLM is not called, to
+    avoid hallucinating an answer from irrelevant context.
+
     Args:
         vector_store: FAISS vector store from knowledge_base.py
         llm: Callable from get_llm()
         question: The user's question string
+        score_threshold: max FAISS L2 distance to trust a match
 
     Returns:
         dict with two keys:
@@ -82,8 +93,16 @@ def ask_question(vector_store, llm, question: str) -> dict:
             "sources" -> list[str]: the chunk texts that were retrieved
     """
     # Find top 3 chunks and formats for context
-    docs = vector_store.similarity_search(question, k=3)
-    sources = [doc.page_content for doc in docs]
+    docs_with_scores = vector_store.similarity_search_with_score(question, k=3)
+    sources = [doc.page_content for doc, _ in docs_with_scores]
+
+    best_score = docs_with_scores[0][1]
+    if best_score > score_threshold:
+        return {
+            "answer": "I don't have enough information to answer that.",
+            "sources": sources,
+        }
+
     context = "\n\n".join(sources)
 
     # Query LLM

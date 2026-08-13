@@ -114,11 +114,17 @@ def main():
     vector_store = build_knowledge_base(data_dir)
     llm = get_llm()
 
-    print("=" * 40)
+    print("=" * 60)
     print("Ask any question about our services! I'm happy to help with pricing, policies, and processes (type 'quit' to exit).\n")
 
     while True:
-        question = input("> ").strip()
+        try:
+            question = input("> ").strip()
+        # Handle Ctrl + C
+        except (KeyboardInterrupt, EOFError):
+            print("Quitting...")
+            break
+
         if question.lower() == "quit":
             break
         if not question:

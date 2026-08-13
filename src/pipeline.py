@@ -12,6 +12,7 @@ Useful docs:
   - HuggingFace pipelines: https://python.langchain.com/docs/integrations/llms/huggingface_pipelines/
 """
 
+import argparse
 import os
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from src.knowledge_base import build_knowledge_base
@@ -93,6 +94,19 @@ def ask_question(vector_store, llm, question: str) -> dict:
     return {"answer": answer, "sources": sources}
 
 
+def print_result(result: dict, words_from_source:int = 10) -> None:
+    """Print sources (truncated to words_from_source words) and the answer for a result dict."""
+    print("\n📄 Sources:")
+    for i, source in enumerate(result["sources"], start=1):
+        words = source.split()
+        preview = " ".join(words[:words_from_source])
+        if len(words) > words_from_source:
+            preview += "..."
+        print(f"  {i}. {preview}")
+
+    print(f"\n💬 Answer: {result['answer']}\n")
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TODO 2: Complete the interactive loop
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -109,6 +123,16 @@ def main():
          - Calls ask_question() with their input
          - Prints the retrieved sources and the answer
     """
+    # Parser to handle --query flag
+    parser = argparse.ArgumentParser(description="Chatbot assistant")
+    parser.add_argument(
+        "--query",
+        nargs="?",
+        const="",
+        help="Ask a single question and exit (single-question mode)",
+    )
+    args = parser.parse_args()
+
     data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
 
     # Handle missing data directory
@@ -126,6 +150,18 @@ def main():
     llm = get_llm()
 
     print("=" * 60)
+
+    # Handle --query flag (single-question)
+    if args.query is not None:
+        question = args.query.strip()
+        if not question:
+            print("System: Please enter a question.")
+            return
+        result = ask_question(vector_store, llm, question)
+        print_result(result)
+        return
+
+    # Handle default mode (multi-question)
     print("Ask any question about our services! I'm happy to help with pricing, policies, and processes (type 'quit' to exit).\n")
 
     while True:
@@ -133,27 +169,18 @@ def main():
         try:
             question = input("> ").strip()
         except (KeyboardInterrupt, EOFError):
-            print("Quitting...")
+            print("System: Quitting...")
             break
 
         # Special case input handling
         if question.lower() == "quit":
             break
         if not question:
-            print("Please enter a question.\n")
+            print("System: Please enter a question.\n")
             continue
 
         result = ask_question(vector_store, llm, question)
-
-        print("\n📄 Sources:")
-        for i, source in enumerate(result["sources"], start=1):
-            words = source.split()
-            preview = " ".join(words[:7])
-            if len(words) > 7:
-                preview += "..."
-            print(f"  {i}. {preview}")
-
-        print(f"\n💬 Answer: {result['answer']}\n")
+        print_result(result)
 
 
 if __name__ == "__main__":

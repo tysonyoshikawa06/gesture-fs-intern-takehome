@@ -111,6 +111,17 @@ def main():
     """
     data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
 
+    # Handle missing data directory
+    if not os.path.isdir(data_dir):
+        print(f"Error: data directory not found at {os.path.abspath(data_dir)}")
+        return
+
+    # Handle no .txt files found in data directory
+    txt_files = [f for f in os.listdir(data_dir) if f.endswith(".txt")]
+    if not txt_files:
+        print(f"Error: no .txt files found in {os.path.abspath(data_dir)}")
+        return
+
     vector_store = build_knowledge_base(data_dir)
     llm = get_llm()
 
@@ -118,16 +129,18 @@ def main():
     print("Ask any question about our services! I'm happy to help with pricing, policies, and processes (type 'quit' to exit).\n")
 
     while True:
+        # Handle Ctrl + C
         try:
             question = input("> ").strip()
-        # Handle Ctrl + C
         except (KeyboardInterrupt, EOFError):
             print("Quitting...")
             break
 
+        # Special case input handling
         if question.lower() == "quit":
             break
         if not question:
+            print("Please enter a question.\n")
             continue
 
         result = ask_question(vector_store, llm, question)
